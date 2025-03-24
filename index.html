@@ -16,7 +16,7 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            overflow-y: auto;
+            overflow-y: hidden;
             background-color: black;
         }
 
@@ -24,7 +24,8 @@
             perspective: 1000px;
             position: absolute;
             z-index: 10;
-            zoom: 4.715;
+            bottom: 22px;
+            right: 15px;
         }
 
         .container {
@@ -79,7 +80,7 @@
         #frontGrid {
             position: absolute;
             border: 0.25vw solid transparent;
-            transform: rotateY(90deg) translateZ(-5vw);
+            transform: rotateY(-90deg) translateZ(5vw);
         }
 
         .grid {
@@ -95,9 +96,7 @@
             max-width: 3vw;
             max-height: 3vw;
             box-sizing: border-box;
-            border: 0.01vw solid black;
         }
-
         #status {
             bottom: 20px;
             color: red;
@@ -105,6 +104,18 @@
             font-size: 14px;
             z-index: 10;
         }
+
+        .dot {
+            width: 5vw;
+            height: 5vw;
+            max-width: 50px;
+            max-height: 50px;
+            background: transparent;
+            border: 0.5vw solid black;
+            position: absolute;
+            border-radius: 50%;
+        }
+        
     </style>
 </head>
 
@@ -178,9 +189,9 @@
         };
 
         const topPoints = [
-            [180, 100], [250, 65], [320, 40],
-            [250, 140], [320, 100], [387, 65],
-            [320, 180], [387, 140], [460, 100]
+            [175, 110], [245, 70], [317, 35],
+            [245, 150], [317, 110], [387, 70],
+            [317, 190], [387, 150], [460, 110]
         ];
 
         const frontPoints = [
@@ -190,11 +201,50 @@
         ];
 
         const rightPoints = [
-            [360, 260], [430, 210], [500, 180],
-            [360, 340], [430, 300], [500, 260],
-            [360, 420], [430, 380], [500, 340]
+            [355, 260], [425, 220], [495, 180],
+            [355, 340], [425, 300], [495, 260],
+            [355, 420], [425, 380], [495, 340]
         ];
 
+        const allPoints = [...topPoints, ...frontPoints, ...rightPoints];
+        const container = document.querySelector('.container');
+        let dotcount=0;
+        // Adjust to percentage-based positioning
+        function createDots(points) {
+            points.forEach(point => {
+                const dot = document.createElement('div');
+                dot.classList.add('dot');
+                if(dotcount<9){
+                    dot.id=`td${dotcount}`;
+                } else if(dotcount<18){
+                    dot.id=`fd${dotcount-9}`;
+                } else {
+                    dot.id=`rd${dotcount-18}`;
+                }
+                dotcount++;
+                container.appendChild(dot);
+            });
+        }
+        
+        function updateDots() {
+            const videoRect = video.getBoundingClientRect();
+            const allDots = document.querySelectorAll('.dot');
+            const allPoints = [...topPoints, ...frontPoints, ...rightPoints];
+        
+            allPoints.forEach((point, index) => {
+                const dot = allDots[index];
+                const xPercent = (point[0] / 640) * videoRect.width;
+                const yPercent = (point[1] / 480) * videoRect.height;
+                dot.style.left = `${xPercent - dot.offsetWidth / 2}px`;
+                dot.style.top = `${yPercent - dot.offsetHeight / 2}px`;
+                
+            });
+        }
+        
+        createDots([...topPoints, ...frontPoints, ...rightPoints]);
+        window.addEventListener('resize', updateDots);
+        video.addEventListener('loadedmetadata', updateDots);
+        
         async function startVideo() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -233,7 +283,8 @@
                 const closestColor = findClosestColor(hsv, pixel);
                 const cell = document.getElementById(`t${index}`);
                 const rgb = cubeColorsRGB[closestColor];
-                cell.style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                document.getElementById(`td${index}`).style.border=`5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                 cell.title = closestColor;
             });
 
@@ -244,7 +295,8 @@
                 const closestColor = findClosestColor(hsv, pixel);
                 const cell = document.getElementById(`f${index}`);
                 const rgb = cubeColorsRGB[closestColor];
-                cell.style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                document.getElementById(`fd${index}`).style.border=`5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                 cell.title = closestColor;
             });
 
@@ -255,7 +307,8 @@
                 const closestColor = findClosestColor(hsv, pixel);
                 const cell = document.getElementById(`r${index}`);
                 const rgb = cubeColorsRGB[closestColor];
-                cell.style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                document.getElementById(`rd${index}`).style.border=`5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                 cell.title = closestColor;
             });
 
