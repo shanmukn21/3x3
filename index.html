@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Rubik's Cube Three-Face Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: 0;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-y: auto;
+            background-color: black;
+        }
+        
+        .output {
+            perspective: 1000px;
+            position: absolute;
+            z-index: 10;
+            zoom: 3;
+        }
+        
+        .container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: visible;
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        #video {
+            display: block;
+            width: 100%;
+            max-height: 100vh;
+            height: auto;
+            object-fit: contain;
+        }
+        
+        #canvas {
+            display: none;
+            width: 100%;
+            max-height: 100vh;
+            height: auto;
+        }
+        
+        .face-container {
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-35deg) rotateY(45deg);
+            width: 10vw;
+            height: 10vw;
+            min-height: 10vw;
+            min-width: 10vw;
+            box-sizing: border-box;
+        }
+        
+        #topGrid {
+            position: absolute;
+            border: 0.25vw solid transparent;
+            transform: rotateX(90deg) translateZ(5vw);
+        }
+        
+        #rightGrid {
+            position: absolute;
+            border: 0.25vw solid transparent;
+            transform: translateZ(5vw);
+        }
+        
+        #frontGrid {
+            position: absolute;
+            border: 0.25vw solid transparent;
+            transform: rotateY(90deg) translateZ(-5vw);
+        }
+        
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25vw;
+            max-width: 10vw;
+        }
+        
+        .cell {
+            min-width: 3vw;
+            min-height: 3vw;
+            max-width: 3vw;
+            max-height: 3vw;
+            box-sizing: border-box;
+            border: 0.01vw solid black;
+        }
+        
+        #status {
+            bottom: 20px;
+            color: red;
+            position: absolute;
+            font-size: 14px;
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <video id="video" width="640" height="480" autoplay></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+        <div class="output">
+            <div class="face-container">
+                <div class="grid" id="topGrid">
+                    <div class="cell" id="t0"></div>
+                    <div class="cell" id="t1"></div>
+                    <div class="cell" id="t2"></div>
+                    <div class="cell" id="t3"></div>
+                    <div class="cell" id="t4"></div>
+                    <div class="cell" id="t5"></div>
+                    <div class="cell" id="t6"></div>
+                    <div class="cell" id="t7"></div>
+                    <div class="cell" id="t8"></div>
+                </div>
+                <div class="grid" id="frontGrid">
+                    <div class="cell" id="f0"></div>
+                    <div class="cell" id="f1"></div>
+                    <div class="cell" id="f2"></div>
+                    <div class="cell" id="f3"></div>
+                    <div class="cell" id="f4"></div>
+                    <div class="cell" id="f5"></div>
+                    <div class="cell" id="f6"></div>
+                    <div class="cell" id="f7"></div>
+                    <div class="cell" id="f8"></div>
+                </div>
+                <div class="grid" id="rightGrid">
+                    <div class="cell" id="r0"></div>
+                    <div class="cell" id="r1"></div>
+                    <div class="cell" id="r2"></div>
+                    <div class="cell" id="r3"></div>
+                    <div class="cell" id="r4"></div>
+                    <div class="cell" id="r5"></div>
+                    <div class="cell" id="r6"></div>
+                    <div class="cell" id="r7"></div>
+                    <div class="cell" id="r8"></div>
+                </div>
+            </div>
+        </div>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+
+        const cubeColorsHSV = {
+            white: [0, 0, 90],
+            yellow: [55, 85, 95],
+            blue: [240, 100, 100],
+            green: [120, 100, 100],
+            red: [0, 100, 100],
+            orange: [25, 100, 95]
+        };
+
+        const cubeColorsRGB = {
+            white: [255, 255, 255],
+            yellow: [255, 255, 0],
+            blue: [0, 0, 255],
+            green: [0, 255, 0],
+            red: [255, 0, 0],
+            orange: [255, 165, 0],
+            black: [0, 0, 0]
+        };
+
+        const topPoints = [
+            [273, 60], [320, 60], [367, 60],
+            [273, 100], [320, 100], [367, 100],
+            [273, 140], [320, 140], [367, 140]
+        ];
+        const frontPoints = [
+            [213, 220], [320, 220], [427, 220],
+            [213, 300], [320, 300], [427, 300],
+            [213, 380], [320, 380], [427, 380]
+        ];
+        const rightPoints = [
+            [460, 220], [507, 220], [554, 220],
+            [460, 300], [507, 300], [554, 300],
+            [460, 380], [507, 380], [554, 380]
+        ];
+
+        async function startVideo() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                });
+                video.srcObject = stream;
+                status.textContent = "Webcam connected - Live detection running";
+                video.onloadedmetadata = () => {
+                    video.play();
+                    updateFrame();
+                };
+            } catch (err) {
+                status.textContent = `Error: ${err.message}`;
+                console.error(err);
+            }
+        }
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            startVideo();
+        } else {
+            status.textContent = "Webcam not supported";
+        }
+
+        function updateFrame() {
+            if (!video.srcObject) {
+                status.textContent = "No video feed";
+                return;
+            }
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Update Top Face
+            topPoints.forEach((point, index) => {
+                const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
+                const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+                const closestColor = findClosestColor(hsv, pixel);
+                const cell = document.getElementById(`t${index}`);
+                const rgb = cubeColorsRGB[closestColor];
+                cell.style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.title = closestColor;
+            });
+
+            // Update Front Face
+            frontPoints.forEach((point, index) => {
+                const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
+                const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+                const closestColor = findClosestColor(hsv, pixel);
+                const cell = document.getElementById(`f${index}`);
+                const rgb = cubeColorsRGB[closestColor];
+                cell.style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.title = closestColor;
+            });
+
+            // Update Right Face
+            rightPoints.forEach((point, index) => {
+                const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
+                const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
+                const closestColor = findClosestColor(hsv, pixel);
+                const cell = document.getElementById(`r${index}`);
+                const rgb = cubeColorsRGB[closestColor];
+                cell.style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.title = closestColor;
+            });
+
+            requestAnimationFrame(updateFrame);
+        }
+
+        function rgbToHsv(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const delta = max - min;
+            let h, s, v = max * 100;
+
+            if (max === 0) s = 0;
+            else s = (delta / max) * 100;
+
+            if (delta === 0) h = 0;
+            else if (max === r) h = 60 * (((g - b) / delta) % 6);
+            else if (max === g) h = 60 * ((b - r) / delta + 2);
+            else h = 60 * ((r - g) / delta + 4);
+
+            if (h < 0) h += 360;
+            return [h, s, v];
+        }
+
+        function findClosestColor(hsv, rgb) {
+            const isCubeColor = (hsv[1] > 50 && hsv[2] > 60) ||
+                (hsv[1] < 10 && hsv[2] > 85 && rgb[0] > 200 && rgb[1] > 200 && rgb[2] > 200);
+
+            if (!isCubeColor) {
+                return 'black';
+            }
+
+            if (hsv[1] < 10 && hsv[2] > 85 && rgb[0] > 200 && rgb[1] > 200 && rgb[2] > 200) {
+                return 'white';
+            }
+
+            let minDistance = Infinity;
+            let closestColor = 'black';
+
+            for (const [color, refHSV] of Object.entries(cubeColorsHSV)) {
+                if (color === 'white') continue;
+
+                const hueDiff = Math.min(
+                    Math.abs(hsv[0] - refHSV[0]),
+                    360 - Math.abs(hsv[0] - refHSV[0])
+                );
+                const satDiff = Math.abs(hsv[1] - refHSV[1]);
+                const valDiff = Math.abs(hsv[2] - refHSV[2]);
+
+                const distance = Math.sqrt(
+                    (hueDiff * hueDiff * 3) +
+                    satDiff * satDiff +
+                    valDiff * valDiff
+                );
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestColor = color;
+                }
+            }
+
+            if (closestColor === 'yellow' || closestColor === 'orange') {
+                if (hsv[0] < 40) return 'orange';
+                if (hsv[0] >= 45) return 'yellow';
+            }
+
+            return closestColor;
+        }
+    </script>
+</body>
+
+</html>
