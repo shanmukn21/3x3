@@ -9,7 +9,7 @@
             padding: 0;
             border: 0;
         }
-        
+
         body {
             display: flex;
             flex-direction: column;
@@ -19,14 +19,14 @@
             overflow-y: auto;
             background-color: black;
         }
-        
+
         .output {
             perspective: 1000px;
             position: absolute;
             z-index: 10;
-            zoom: 3;
+            zoom: 4.715;
         }
-        
+
         .container {
             position: relative;
             display: flex;
@@ -37,7 +37,7 @@
             width: 100%;
             max-width: 100%;
         }
-        
+
         #video {
             display: block;
             width: 100%;
@@ -45,14 +45,14 @@
             height: auto;
             object-fit: contain;
         }
-        
+
         #canvas {
             display: none;
             width: 100%;
             max-height: 100vh;
             height: auto;
         }
-        
+
         .face-container {
             position: relative;
             transform-style: preserve-3d;
@@ -63,32 +63,32 @@
             min-width: 10vw;
             box-sizing: border-box;
         }
-        
+
         #topGrid {
             position: absolute;
             border: 0.25vw solid transparent;
             transform: rotateX(90deg) translateZ(5vw);
         }
-        
+
         #rightGrid {
             position: absolute;
             border: 0.25vw solid transparent;
             transform: translateZ(5vw);
         }
-        
+
         #frontGrid {
             position: absolute;
             border: 0.25vw solid transparent;
             transform: rotateY(90deg) translateZ(-5vw);
         }
-        
+
         .grid {
             display: flex;
             flex-wrap: wrap;
             gap: 0.25vw;
             max-width: 10vw;
         }
-        
+
         .cell {
             min-width: 3vw;
             min-height: 3vw;
@@ -97,7 +97,7 @@
             box-sizing: border-box;
             border: 0.01vw solid black;
         }
-        
+
         #status {
             bottom: 20px;
             color: red;
@@ -178,19 +178,21 @@
         };
 
         const topPoints = [
-            [273, 60], [320, 60], [367, 60],
-            [273, 100], [320, 100], [367, 100],
-            [273, 140], [320, 140], [367, 140]
+            [180, 100], [250, 65], [320, 40],
+            [250, 140], [320, 100], [387, 65],
+            [320, 180], [387, 140], [460, 100]
         ];
+
         const frontPoints = [
-            [213, 220], [320, 220], [427, 220],
-            [213, 300], [320, 300], [427, 300],
-            [213, 380], [320, 380], [427, 380]
+            [140, 180], [210, 220], [280, 260],
+            [140, 260], [210, 300], [280, 340],
+            [140, 340], [210, 380], [280, 420]
         ];
+
         const rightPoints = [
-            [460, 220], [507, 220], [554, 220],
-            [460, 300], [507, 300], [554, 300],
-            [460, 380], [507, 380], [554, 380]
+            [360, 260], [430, 210], [500, 180],
+            [360, 340], [430, 300], [500, 260],
+            [360, 420], [430, 380], [500, 340]
         ];
 
         async function startVideo() {
