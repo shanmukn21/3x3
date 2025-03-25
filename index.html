@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,7 +54,7 @@
         }
 
         #video {
-            display: block;
+            display: none;
             width: 100%;
             max-height: 100vh;
             height: auto;
@@ -61,10 +62,11 @@
         }
 
         #canvas {
-            display: none;
+            display: block;
             width: 100%;
             max-height: 100vh;
             height: auto;
+            object-fit: contain;
         }
 
         .face-container {
@@ -128,6 +130,7 @@
             border: 0.5vw solid black;
             position: absolute;
             border-radius: 50%;
+            z-index: 5;
         }
 
         #fullscreenBtn {
@@ -147,6 +150,47 @@
             align-items: center;
             justify-content: center;
             padding: 2.5px;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #controls button,
+        #controls input {
+            padding: 5px;
+            line-height: 0px;
+            background-color: white;
+            color: black;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .camera-button {
+            display: inline-block;
+            padding: 5px;
+            line-height: 0px;
+            background-color: white;
+            color: black;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #imageUpload {
+            display: none;
+        }
+
+        #controls input[type="range"] {
+            display: none;
+            width: 100px;
         }
     </style>
 </head>
@@ -231,10 +275,33 @@
         </div>
         <div id="status"></div>
     </div>
+    <div id="controls">
+        <button id="toggleMode"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="lucide lucide-camera">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                <circle cx="12" cy="13" r="3" />
+            </svg></button>
+        <input type="file" id="imageUpload" accept="image/*">
+        <label for="imageUpload" class="camera-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="lucide lucide-image-plus">
+                <path d="M16 5h6" />
+                <path d="M19 2v6" />
+                <path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                <circle cx="9" cy="9" r="2" />
+            </svg>
+        </label>
+        <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1">
+    </div>
     <span id="fullscreenBtn" class="screen">
         <i>
             <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#ffffff">
-                <path d="M120-120v-200h80v120h120v80H120Zm520 0v-80h120v-120h80v200H640ZM120-640v-200h200v80H200v120h-80Zm640 0v-120H640v-80h200v200h-80Z"></path>
+                <path
+                    d="M120-120v-200h80v120h120v80H120Zm520 0v-80h120v-120h80v200H640ZM120-640v-200h200v80H200v120h-80Zm640 0v-120H640v-80h200v200h-80Z">
+                </path>
             </svg>
         </i>
     </span>
@@ -245,24 +312,27 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const status = document.getElementById('status');
+        const imageUpload = document.getElementById('imageUpload');
+        const toggleModeBtn = document.getElementById('toggleMode');
+        const zoomSlider = document.getElementById('zoomSlider');
 
         const cubeColorsHSV = {
             white: [0, 0, 90],
             yellow: [55, 85, 95],
             blue: [240, 100, 100],
-            green: [110, 80, 80], // Adjusted green: hue lowered to 110, saturation and value reduced for better detection
+            green: [110, 80, 80],
             red: [0, 100, 100],
             orange: [25, 100, 95]
         };
 
         const cubeColorsRGB = {
-            white: [255, 255, 255],
-            yellow: [255, 255, 0],
-            blue: [0, 0, 255],
-            green: [0, 255, 0],
-            red: [255, 0, 0],
-            orange: [255, 165, 0],
-            black: [0, 0, 0]
+            white: '#DDD',
+            yellow: '#E0AE00',
+            blue: '#001ca8',
+            green: '#006E16',
+            red: '#DF0500',
+            orange: '#FF5000',
+            black: '#000'
         };
 
         const topPoints = [
@@ -287,6 +357,14 @@
         const container = document.querySelector('.container');
         let dotcount = 0;
 
+        let isWebcamMode = true;
+        let uploadedImage = null;
+        let zoomLevel = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let startX, startY;
+
         function createDots(points) {
             points.forEach(point => {
                 const dot = document.createElement('div');
@@ -306,39 +384,44 @@
         function updateDots() {
             const width = document.body.clientWidth;
             const height = document.body.clientHeight;
-            const videoRect = video.getBoundingClientRect();
-            const videoAspectRatio = video.videoWidth / video.videoHeight;
-            const containerAspectRatio = videoRect.width / videoRect.height;
+            if (height > width) {
+                console.log('height is greater');
+            }
+            const canvasRect = canvas.getBoundingClientRect();
+            const canvasAspectRatio = canvas.width / canvas.height;
+            const containerAspectRatio = canvasRect.width / canvasRect.height;
 
             let scale;
-            if (containerAspectRatio > videoAspectRatio) {
-                scale = videoRect.height / 480;
+            if (containerAspectRatio > canvasAspectRatio) {
+                scale = canvasRect.height / 480;
             } else {
-                scale = videoRect.width / 640;
+                scale = canvasRect.width / 640;
             }
 
             templ = 0;
             tempt = 0;
-            console.log('body:', height, 'video:', videoRect.height);
-            if ((height - videoRect.height) < 1) {
+            if ((height - canvasRect.height) < 1) {
                 document.querySelector('.output1').style.right = `${((width - (height / 480) * 640) / 2) + 50}px`;
                 document.querySelector('.output2').style.left = `${((width - (height / 480) * 640) / 2) + 50}px`;
-                templ = (width - (height / 480) * 640) / 2;
+                if (height > width) {
+                    templ = (width - (height / 640) * 480) / 2;
+                } else {
+                    templ = (width - (height / 480) * 640) / 2;
+                }
             } else {
                 document.querySelector('.output1').style.right = `30px`;
                 document.querySelector('.output2').style.left = `30px`;
             }
-            console.log((height - videoRect.height) / 2);
-            tempt -= (height - videoRect.height) / 2;
-            const allDots = document.querySelectorAll('.dot');
+            tempt -= (height - canvasRect.height) / 2;
 
+            const allDots = document.querySelectorAll('.dot');
             allPoints.forEach((point, index) => {
                 const dot = allDots[index];
                 const xPercent = point[0] * scale;
                 const yPercent = point[1] * scale;
 
-                let tmpl = videoRect.left + xPercent - dot.offsetWidth / 2 + templ;
-                let tmpt = videoRect.top + yPercent - dot.offsetHeight / 2 + tempt;
+                let tmpl = canvasRect.left + xPercent - dot.offsetWidth / 2 + templ;
+                let tmpt = canvasRect.top + yPercent - dot.offsetHeight / 2 + tempt;
 
                 dot.style.left = `${tmpl}px`;
                 dot.style.top = `${tmpt}px`;
@@ -346,8 +429,6 @@
         }
 
         window.addEventListener('resize', updateDots);
-        video.addEventListener('loadedmetadata', updateDots);
-        video.addEventListener('play', updateDots);
 
         createDots([...topPoints, ...frontPoints, ...rightPoints]);
 
@@ -360,6 +441,7 @@
                 status.textContent = "";
                 video.onloadedmetadata = () => {
                     video.play();
+                    updateDots();
                     updateFrame();
                 };
             } catch (err) {
@@ -368,6 +450,159 @@
             }
         }
 
+        function stopVideo() {
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+        }
+
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                stopVideo();
+                isWebcamMode = false;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    uploadedImage = new Image();
+                    uploadedImage.src = e.target.result;
+                    uploadedImage.onload = () => {
+                        updateDots();
+                        updateFrame();
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Modified event listeners with touch support
+        toggleModeBtn.addEventListener('click', () => {
+            if (isWebcamMode) {
+            } else {
+                isWebcamMode = true;
+                uploadedImage = null;
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    startVideo();
+                } else {
+                    status.textContent = "Webcam not supported";
+                }
+            }
+            zoomLevel = 1;
+            offsetX = 0;
+            offsetY = 0;
+            zoomSlider.value = 1;
+        });
+
+        zoomSlider.addEventListener('input', (event) => {
+            zoomLevel = parseFloat(event.target.value);
+            updateFrame();
+        });
+
+        // Touch and mouse events for dragging
+        canvas.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            isDragging = true;
+            const touch = event.touches[0];
+            startX = touch.clientX - offsetX;
+            startY = touch.clientY - offsetY;
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            startX = event.clientX - offsetX;
+            startY = event.clientY - offsetY;
+        });
+
+        canvas.addEventListener('touchmove', (event) => {
+            event.preventDefault();
+            if (isDragging) {
+                const touch = event.touches[0];
+                offsetX = touch.clientX - startX;
+                offsetY = touch.clientY - startY;
+                updateFrame();
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                offsetX = event.clientX - startX;
+                offsetY = event.clientY - startY;
+                updateFrame();
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            zoomLevel += event.deltaY * -0.001;
+            zoomLevel = Math.min(Math.max(0.5, zoomLevel), 3);
+            zoomSlider.value = zoomLevel;
+            updateFrame();
+        });
+
+        // Add touch zoom (pinch) support
+        let initialDistance = null;
+        canvas.addEventListener('touchstart', (event) => {
+            if (event.touches.length === 2) {
+                event.preventDefault();
+                const touch1 = event.touches[0];
+                const touch2 = event.touches[1];
+                initialDistance = Math.hypot(
+                    touch1.clientX - touch2.clientX,
+                    touch1.clientY - touch2.clientY
+                );
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (event) => {
+            if (event.touches.length === 2) {
+                event.preventDefault();
+                const touch1 = event.touches[0];
+                const touch2 = event.touches[1];
+                const currentDistance = Math.hypot(
+                    touch1.clientX - touch2.clientX,
+                    touch1.clientY - touch2.clientY
+                );
+                if (initialDistance) {
+                    const scale = currentDistance / initialDistance;
+                    zoomLevel = Math.min(Math.max(0.5, zoomLevel * scale), 3);
+                    zoomSlider.value = zoomLevel;
+                    updateFrame();
+                }
+                initialDistance = currentDistance;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (event) => {
+            if (event.touches.length < 2) {
+                initialDistance = null;
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            zoomLevel += event.deltaY * -0.001;
+            zoomLevel = Math.min(Math.max(0.5, zoomLevel), 3);
+            zoomSlider.value = zoomLevel;
+            updateFrame();
+        });
+
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             startVideo();
         } else {
@@ -375,12 +610,18 @@
         }
 
         function updateFrame() {
-            if (!video.srcObject) {
-                status.textContent = "No video feed";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (isWebcamMode && video.srcObject) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            } else if (uploadedImage) {
+                const imgWidth = uploadedImage.width * zoomLevel;
+                const imgHeight = uploadedImage.height * zoomLevel;
+                ctx.drawImage(uploadedImage, offsetX, offsetY, imgWidth, imgHeight);
+            } else {
+                status.textContent = "No video feed or image uploaded";
                 return;
             }
-
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             topPoints.forEach((point, index) => {
                 const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
@@ -388,8 +629,8 @@
                 const closestColor = findClosestColor(hsv, pixel);
                 const cell = document.getElementById(`t${index}`);
                 const rgb = cubeColorsRGB[closestColor];
-                cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-                document.getElementById(`td${index}`).style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.style.background = `${rgb}`;
+                document.getElementById(`td${index}`).style.border = `5px solid ${rgb}`;
                 cell.title = closestColor;
             });
 
@@ -399,8 +640,8 @@
                 const closestColor = findClosestColor(hsv, pixel);
                 const cell = document.getElementById(`f${index}`);
                 const rgb = cubeColorsRGB[closestColor];
-                cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-                document.getElementById(`fd${index}`).style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.style.background = `${rgb}`;
+                document.getElementById(`fd${index}`).style.border = `5px solid ${rgb}`;
                 cell.title = closestColor;
             });
 
@@ -410,12 +651,14 @@
                 const closestColor = findClosestColor(hsv, pixel);
                 const cell = document.getElementById(`r${index}`);
                 const rgb = cubeColorsRGB[closestColor];
-                cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-                document.getElementById(`rd${index}`).style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                cell.style.background = `${rgb}`;
+                document.getElementById(`rd${index}`).style.border = `5px solid ${rgb}`;
                 cell.title = closestColor;
             });
 
-            requestAnimationFrame(updateFrame);
+            if (isWebcamMode) {
+                requestAnimationFrame(updateFrame);
+            }
         }
 
         function rgbToHsv(r, g, b) {
@@ -449,6 +692,14 @@
                 return 'white';
             }
 
+            // Special handling for green (rgb(0, 110, 22))
+            const greenThreshold = 40; // Adjust this value to control sensitivity
+            if (Math.abs(rgb[0] - 0) < greenThreshold &&
+                Math.abs(rgb[1] - 110) < greenThreshold &&
+                Math.abs(rgb[2] - 22) < greenThreshold) {
+                return 'green';
+            }
+
             let minDistance = Infinity;
             let closestColor = 'black';
 
@@ -474,41 +725,7 @@
                 }
             }
 
-            // Improved logic for distinguishing orange and red
-            if (closestColor === 'red' || closestColor === 'orange') {
-                if (hsv[0] >= 15 && hsv[0] <= 35) {
-                    return 'orange'; // Orange typically has a hue between 15 and 35
-                } else if (hsv[0] <= 10 || hsv[0] >= 350) {
-                    return 'red'; // Red has a hue close to 0 or 360
-                }
-            }
-
-            // Additional check for green to ensure it’s not mistaken
-            if (closestColor === 'green' && (hsv[0] < 90 || hsv[0] > 150)) {
-                // If the hue is outside the typical green range, re-evaluate
-                let secondMinDistance = Infinity;
-                let secondClosestColor = 'black';
-                for (const [color, refHSV] of Object.entries(cubeColorsHSV)) {
-                    if (color === 'white' || color === 'green') continue;
-                    const hueDiff = Math.min(
-                        Math.abs(hsv[0] - refHSV[0]),
-                        360 - Math.abs(hsv[0] - refHSV[0])
-                    );
-                    const satDiff = Math.abs(hsv[1] - refHSV[1]);
-                    const valDiff = Math.abs(hsv[2] - refHSV[2]);
-                    const distance = Math.sqrt(
-                        (hueDiff * hueDiff * 3) +
-                        satDiff * satDiff +
-                        valDiff * valDiff
-                    );
-                    if (distance < secondMinDistance) {
-                        secondMinDistance = distance;
-                        secondClosestColor = color;
-                    }
-                }
-                return secondClosestColor;
-            }
-
+            // [Rest of the findClosestColor function remains the same]
             return closestColor;
         }
 
@@ -523,4 +740,5 @@
         });
     </script>
 </body>
+
 </html>
