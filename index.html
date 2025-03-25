@@ -20,14 +20,21 @@
             background-color: black;
         }
 
-        .output {
+        .output1,.output2{
             perspective: 1000px;
             position: absolute;
             z-index: 10;
-            bottom: 22px;
-            right: 15px;
+            bottom: 7vh; 
         }
-
+        .output1 {
+            right: 30px;
+        }
+        .output2 {
+            left: 30px;
+        }
+        .output2 .cell{
+            background: black;
+        }
         .container {
             position: relative;
             display: flex;
@@ -97,12 +104,19 @@
             max-height: 3vw;
             box-sizing: border-box;
         }
+
         #status {
             bottom: 20px;
             color: red;
             position: absolute;
             font-size: 14px;
             z-index: 10;
+        }
+
+        .outline {
+            position: absolute;
+            left: 0;
+            top: 0;
         }
 
         .dot {
@@ -115,25 +129,25 @@
             position: absolute;
             border-radius: 50%;
         }
-        
-#fullscreenBtn {
-    --vh: 8.39px;
-    margin: 0;
-    border: 0;
-    background-color: transparent;
-    color: white;
-    position: absolute;
-    min-width: 20px;
-    min-height: 20px;
-    border-radius: 4px;
-    zoom: 1.25;
-    top: 23px;
-    right: 23px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2.5px;
-}
+
+        #fullscreenBtn {
+            --vh: 8.39px;
+            margin: 0;
+            border: 0;
+            background-color: transparent;
+            color: white;
+            position: absolute;
+            min-width: 20px;
+            min-height: 20px;
+            border-radius: 4px;
+            zoom: 1.25;
+            top: 23px;
+            right: 23px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2.5px;
+        }
     </style>
 </head>
 
@@ -141,7 +155,44 @@
     <div class="container">
         <video id="video" width="640" height="480" autoplay></video>
         <canvas id="canvas" width="640" height="480"></canvas>
-        <div class="output">
+        <div class="output1">
+            <div class="face-container">
+                <div class="grid" id="topGrid">
+                    <div class="cell" id="t0"></div>
+                    <div class="cell" id="t1"></div>
+                    <div class="cell" id="t2"></div>
+                    <div class="cell" id="t3"></div>
+                    <div class="cell" id="t4"></div>
+                    <div class="cell" id="t5"></div>
+                    <div class="cell" id="t6"></div>
+                    <div class="cell" id="t7"></div>
+                    <div class="cell" id="t8"></div>
+                </div>
+                <div class="grid" id="frontGrid">
+                    <div class="cell" id="f0"></div>
+                    <div class="cell" id="f1"></div>
+                    <div class="cell" id="f2"></div>
+                    <div class="cell" id="f3"></div>
+                    <div class="cell" id="f4"></div>
+                    <div class="cell" id="f5"></div>
+                    <div class="cell" id="f6"></div>
+                    <div class="cell" id="f7"></div>
+                    <div class="cell" id="f8"></div>
+                </div>
+                <div class="grid" id="rightGrid">
+                    <div class="cell" id="r0"></div>
+                    <div class="cell" id="r1"></div>
+                    <div class="cell" id="r2"></div>
+                    <div class="cell" id="r3"></div>
+                    <div class="cell" id="r4"></div>
+                    <div class="cell" id="r5"></div>
+                    <div class="cell" id="r6"></div>
+                    <div class="cell" id="r7"></div>
+                    <div class="cell" id="r8"></div>
+                </div>
+            </div>
+        </div>
+        <div class="output2">
             <div class="face-container">
                 <div class="grid" id="topGrid">
                     <div class="cell" id="t0"></div>
@@ -190,6 +241,7 @@
         </i>
     </span>
     <script>
+        const body = document.querySelector('body');
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
@@ -234,50 +286,77 @@
 
         const allPoints = [...topPoints, ...frontPoints, ...rightPoints];
         const container = document.querySelector('.container');
-        let dotcount=0;
-        // Adjust to percentage-based positioning
+        let dotcount = 0;
+
         function createDots(points) {
+            const outline = document.createElement('div');
+            outline.classList.add('outline');
             points.forEach(point => {
                 const dot = document.createElement('div');
                 dot.classList.add('dot');
-                if(dotcount<9){
-                    dot.id=`td${dotcount}`;
-                } else if(dotcount<18){
-                    dot.id=`fd${dotcount-9}`;
+                if (dotcount < 9) {
+                    dot.id = `td${dotcount}`;
+                } else if (dotcount < 18) {
+                    dot.id = `fd${dotcount - 9}`;
                 } else {
-                    dot.id=`rd${dotcount-18}`;
+                    dot.id = `rd${dotcount - 18}`;
                 }
                 dotcount++;
-                container.appendChild(dot);
+                outline.appendChild(dot);
             });
+            container.appendChild(outline);
         }
-        
+
         function updateDots() {
+            const width = document.body.clientWidth;
+            const height = document.body.clientHeight;
             const videoRect = video.getBoundingClientRect();
+            const videoAspectRatio = video.videoWidth / video.videoHeight;
+            const containerAspectRatio = videoRect.width / videoRect.height;
+
+            let scale;
+            if (containerAspectRatio > videoAspectRatio) {
+                scale = videoRect.height / 480;
+            } else {
+                scale = videoRect.width / 640;
+            }
+
             const allDots = document.querySelectorAll('.dot');
-            const allPoints = [...topPoints, ...frontPoints, ...rightPoints];
-        
+
             allPoints.forEach((point, index) => {
                 const dot = allDots[index];
-                const xPercent = (point[0] / 640) * videoRect.width;
-                const yPercent = (point[1] / 480) * videoRect.height;
-                dot.style.left = `${xPercent - dot.offsetWidth / 2}px`;
-                dot.style.top = `${yPercent - dot.offsetHeight / 2}px`;
-                
+                const xPercent = point[0] * scale;
+                const yPercent = point[1] * scale;
+
+                dot.style.left = `${videoRect.left + xPercent - dot.offsetWidth / 2}px`;
+                dot.style.top = `${videoRect.top + yPercent - dot.offsetHeight / 2}px`;
             });
+            const outline = document.querySelector('.outline');
+            if ((height-videoRect.height)<1) {
+                outline.style.left = `${(width - (height / 480) * 640) / 2}px`;
+                document.querySelector('.output1').style.right = `${((width - (height / 480) * 640) / 2)+50}px`;
+                document.querySelector('.output2').style.left = `${((width - (height / 480) * 640) / 2)+50}px`;
+            }else {
+                outline.style.left = '0px';
+                document.querySelector('.output1').style.right = `30px`;
+                document.querySelector('.output2').style.left = `30px`;
+            }
+            outline.style.top = `-${(height - videoRect.height) / 2}px`;
         }
-        
-        createDots([...topPoints, ...frontPoints, ...rightPoints]);
+
         window.addEventListener('resize', updateDots);
         video.addEventListener('loadedmetadata', updateDots);
-        
+        video.addEventListener('play', updateDots);
+
+        createDots([...topPoints, ...frontPoints, ...rightPoints]);
+
         async function startVideo() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" }
                 });
                 video.srcObject = stream;
-                status.textContent = "Webcam connected - Live detection running";
+                status.textContent = "";
                 video.onloadedmetadata = () => {
                     video.play();
                     updateFrame();
@@ -310,7 +389,7 @@
                 const cell = document.getElementById(`t${index}`);
                 const rgb = cubeColorsRGB[closestColor];
                 cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-                document.getElementById(`td${index}`).style.border=`5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                document.getElementById(`td${index}`).style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                 cell.title = closestColor;
             });
 
@@ -322,7 +401,7 @@
                 const cell = document.getElementById(`f${index}`);
                 const rgb = cubeColorsRGB[closestColor];
                 cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-                document.getElementById(`fd${index}`).style.border=`5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                document.getElementById(`fd${index}`).style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                 cell.title = closestColor;
             });
 
@@ -334,7 +413,7 @@
                 const cell = document.getElementById(`r${index}`);
                 const rgb = cubeColorsRGB[closestColor];
                 cell.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-                document.getElementById(`rd${index}`).style.border=`5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                document.getElementById(`rd${index}`).style.border = `5px solid rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
                 cell.title = closestColor;
             });
 
