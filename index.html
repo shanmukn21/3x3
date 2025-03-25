@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
-
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rubik's Cube Three-Face Detection</title>
     <style>
         * {
@@ -20,21 +21,26 @@
             background-color: black;
         }
 
-        .output1,.output2{
+        .output1,
+        .output2 {
             perspective: 1000px;
             position: absolute;
             z-index: 10;
-            bottom: 7vh; 
+            bottom: 7vh;
         }
+
         .output1 {
             right: 30px;
         }
+
         .output2 {
             left: 30px;
         }
-        .output2 .cell{
+
+        .output2 .cell {
             background: black;
         }
+
         .container {
             position: relative;
             display: flex;
@@ -111,12 +117,6 @@
             position: absolute;
             font-size: 14px;
             z-index: 10;
-        }
-
-        .outline {
-            position: absolute;
-            left: 0;
-            top: 0;
         }
 
         .dot {
@@ -231,15 +231,14 @@
         </div>
         <div id="status"></div>
     </div>
-
     <span id="fullscreenBtn" class="screen">
-        <i><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#ffffff">
-                <path
-                    d="M120-120v-200h80v120h120v80H120Zm520 0v-80h120v-120h80v200H640ZM120-640v-200h200v80H200v120h-80Zm640 0v-120H640v-80h200v200h-80Z">
-                </path>
+        <i>
+            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#ffffff">
+                <path d="M120-120v-200h80v120h120v80H120Zm520 0v-80h120v-120h80v200H640ZM120-640v-200h200v80H200v120h-80Zm640 0v-120H640v-80h200v200h-80Z"></path>
             </svg>
         </i>
     </span>
+
     <script>
         const body = document.querySelector('body');
         const video = document.getElementById('video');
@@ -251,7 +250,7 @@
             white: [0, 0, 90],
             yellow: [55, 85, 95],
             blue: [240, 100, 100],
-            green: [120, 100, 100],
+            green: [110, 80, 80], // Adjusted green: hue lowered to 110, saturation and value reduced for better detection
             red: [0, 100, 100],
             orange: [25, 100, 95]
         };
@@ -289,8 +288,6 @@
         let dotcount = 0;
 
         function createDots(points) {
-            const outline = document.createElement('div');
-            outline.classList.add('outline');
             points.forEach(point => {
                 const dot = document.createElement('div');
                 dot.classList.add('dot');
@@ -302,11 +299,10 @@
                     dot.id = `rd${dotcount - 18}`;
                 }
                 dotcount++;
-                outline.appendChild(dot);
+                container.appendChild(dot);
             });
-            container.appendChild(outline);
         }
-
+        let templ = null, tempt = null;
         function updateDots() {
             const width = document.body.clientWidth;
             const height = document.body.clientHeight;
@@ -321,6 +317,19 @@
                 scale = videoRect.width / 640;
             }
 
+            templ = 0;
+            tempt = 0;
+            console.log('body:', height, 'video:', videoRect.height);
+            if ((height - videoRect.height) < 1) {
+                document.querySelector('.output1').style.right = `${((width - (height / 480) * 640) / 2) + 50}px`;
+                document.querySelector('.output2').style.left = `${((width - (height / 480) * 640) / 2) + 50}px`;
+                templ = (width - (height / 480) * 640) / 2;
+            } else {
+                document.querySelector('.output1').style.right = `30px`;
+                document.querySelector('.output2').style.left = `30px`;
+            }
+            console.log((height - videoRect.height) / 2);
+            tempt -= (height - videoRect.height) / 2;
             const allDots = document.querySelectorAll('.dot');
 
             allPoints.forEach((point, index) => {
@@ -328,20 +337,12 @@
                 const xPercent = point[0] * scale;
                 const yPercent = point[1] * scale;
 
-                dot.style.left = `${videoRect.left + xPercent - dot.offsetWidth / 2}px`;
-                dot.style.top = `${videoRect.top + yPercent - dot.offsetHeight / 2}px`;
+                let tmpl = videoRect.left + xPercent - dot.offsetWidth / 2 + templ;
+                let tmpt = videoRect.top + yPercent - dot.offsetHeight / 2 + tempt;
+
+                dot.style.left = `${tmpl}px`;
+                dot.style.top = `${tmpt}px`;
             });
-            const outline = document.querySelector('.outline');
-            if ((height-videoRect.height)<1) {
-                outline.style.left = `${(width - (height / 480) * 640) / 2}px`;
-                document.querySelector('.output1').style.right = `${((width - (height / 480) * 640) / 2)+50}px`;
-                document.querySelector('.output2').style.left = `${((width - (height / 480) * 640) / 2)+50}px`;
-            }else {
-                outline.style.left = '0px';
-                document.querySelector('.output1').style.right = `30px`;
-                document.querySelector('.output2').style.left = `30px`;
-            }
-            outline.style.top = `-${(height - videoRect.height) / 2}px`;
         }
 
         window.addEventListener('resize', updateDots);
@@ -381,7 +382,6 @@
 
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Update Top Face
             topPoints.forEach((point, index) => {
                 const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
                 const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
@@ -393,7 +393,6 @@
                 cell.title = closestColor;
             });
 
-            // Update Front Face
             frontPoints.forEach((point, index) => {
                 const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
                 const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
@@ -405,7 +404,6 @@
                 cell.title = closestColor;
             });
 
-            // Update Right Face
             rightPoints.forEach((point, index) => {
                 const pixel = ctx.getImageData(point[0], point[1], 1, 1).data;
                 const hsv = rgbToHsv(pixel[0], pixel[1], pixel[2]);
@@ -476,13 +474,44 @@
                 }
             }
 
-            if (closestColor === 'yellow' || closestColor === 'orange') {
-                if (hsv[0] < 40) return 'orange';
-                if (hsv[0] >= 45) return 'yellow';
+            // Improved logic for distinguishing orange and red
+            if (closestColor === 'red' || closestColor === 'orange') {
+                if (hsv[0] >= 15 && hsv[0] <= 35) {
+                    return 'orange'; // Orange typically has a hue between 15 and 35
+                } else if (hsv[0] <= 10 || hsv[0] >= 350) {
+                    return 'red'; // Red has a hue close to 0 or 360
+                }
+            }
+
+            // Additional check for green to ensure it’s not mistaken
+            if (closestColor === 'green' && (hsv[0] < 90 || hsv[0] > 150)) {
+                // If the hue is outside the typical green range, re-evaluate
+                let secondMinDistance = Infinity;
+                let secondClosestColor = 'black';
+                for (const [color, refHSV] of Object.entries(cubeColorsHSV)) {
+                    if (color === 'white' || color === 'green') continue;
+                    const hueDiff = Math.min(
+                        Math.abs(hsv[0] - refHSV[0]),
+                        360 - Math.abs(hsv[0] - refHSV[0])
+                    );
+                    const satDiff = Math.abs(hsv[1] - refHSV[1]);
+                    const valDiff = Math.abs(hsv[2] - refHSV[2]);
+                    const distance = Math.sqrt(
+                        (hueDiff * hueDiff * 3) +
+                        satDiff * satDiff +
+                        valDiff * valDiff
+                    );
+                    if (distance < secondMinDistance) {
+                        secondMinDistance = distance;
+                        secondClosestColor = color;
+                    }
+                }
+                return secondClosestColor;
             }
 
             return closestColor;
         }
+
         document.getElementById("fullscreenBtn").addEventListener("click", function () {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
@@ -494,5 +523,4 @@
         });
     </script>
 </body>
-
 </html>
