@@ -62,11 +62,17 @@
         }
 
         #canvas {
+            position: relative;
             display: block;
             width: 100%;
             max-height: 100vh;
             height: auto;
             object-fit: contain;
+        }
+
+        #zoomSlider {
+            display: none;
+            width: 100px;
         }
 
         .face-container {
@@ -173,8 +179,20 @@
             cursor: pointer;
         }
 
+        #positionX,
+        #positionY {
+            width: 100px;
+        }
+
+        #toggleMode {
+            max-width: 38px;
+            min-height: 38px;
+            display: none;
+        }
+
         .camera-button {
             display: inline-block;
+            max-width: fit-content;
             padding: 5px;
             line-height: 0px;
             background-color: white;
@@ -186,11 +204,6 @@
 
         #imageUpload {
             display: none;
-        }
-
-        #controls input[type="range"] {
-            display: none;
-            width: 100px;
         }
     </style>
 </head>
@@ -294,7 +307,9 @@
                 <circle cx="9" cy="9" r="2" />
             </svg>
         </label>
-        <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1">
+        <input type="range" id="zoomSlider" min="0.5" max="3" step="0.05" value="1">
+        <input type="range" id="positionX" min="-320" max="320" step="1" value="0">
+        <input type="range" id="positionY" min="-240" max="240" step="1" value="0">
     </div>
     <span id="fullscreenBtn" class="screen">
         <i>
@@ -314,7 +329,10 @@
         const status = document.getElementById('status');
         const imageUpload = document.getElementById('imageUpload');
         const toggleModeBtn = document.getElementById('toggleMode');
+        const camerabtn = document.querySelector('.camera-button');
         const zoomSlider = document.getElementById('zoomSlider');
+        const positionX = document.getElementById('positionX');
+        const positionY = document.getElementById('positionY');
 
         const cubeColorsHSV = {
             white: [0, 0, 90],
@@ -362,8 +380,6 @@
         let zoomLevel = 1;
         let offsetX = 0;
         let offsetY = 0;
-        let isDragging = false;
-        let startX, startY;
 
         function createDots(points) {
             points.forEach(point => {
@@ -380,24 +396,35 @@
                 container.appendChild(dot);
             });
         }
+
         let templ = null, tempt = null;
         function updateDots() {
             const width = document.body.clientWidth;
             const height = document.body.clientHeight;
-            if (height > width) {
-                console.log('height is greater');
-            }
+
             const canvasRect = canvas.getBoundingClientRect();
             const canvasAspectRatio = canvas.width / canvas.height;
             const containerAspectRatio = canvasRect.width / canvasRect.height;
 
             let scale;
-            if (containerAspectRatio > canvasAspectRatio) {
-                scale = canvasRect.height / 480;
+            if (height > width && width < 500) {
+                console.log('height is greater');
+                video.width = 480; canvas.height = 640;
+                canvas.width = 480; canvas.height = 640;
+                if (containerAspectRatio > canvasAspectRatio) {
+                    scale = canvasRect.height / 640;
+                } else {
+                    scale = canvasRect.width / 480;
+                }
             } else {
-                scale = canvasRect.width / 640;
+                video.width = 640; canvas.height = 480;
+                canvas.width = 640; canvas.height = 480;
+                if (containerAspectRatio > canvasAspectRatio) {
+                    scale = canvasRect.height / 480;
+                } else {
+                    scale = canvasRect.width / 640;
+                }
             }
-
             templ = 0;
             tempt = 0;
             if ((height - canvasRect.height) < 1) {
@@ -405,15 +432,24 @@
                 document.querySelector('.output2').style.left = `${((width - (height / 480) * 640) / 2) + 50}px`;
                 if (height > width) {
                     templ = (width - (height / 640) * 480) / 2;
+                    console.log(templ);
                 } else {
                     templ = (width - (height / 480) * 640) / 2;
                 }
             } else {
                 document.querySelector('.output1').style.right = `30px`;
                 document.querySelector('.output2').style.left = `30px`;
+
+                if (height > width && width < 500) {
+                    templ = (width - (height / 640) * 480) / 4;
+                    console.log(templ);
+                }
+
             }
             tempt -= (height - canvasRect.height) / 2;
-
+            if (height > width && width < 500) {
+                tempt -= (height - canvasRect.height) / 640;
+            }
             const allDots = document.querySelectorAll('.dot');
             allPoints.forEach((point, index) => {
                 const dot = allDots[index];
@@ -444,9 +480,13 @@
                     updateDots();
                     updateFrame();
                 };
+                toggleModeBtn.style.display = 'none';
+                camerabtn.style.display = 'block';
+                zoomSlider.style.display = 'none';
+                positionX.style.display = 'none';
+                positionY.style.display = 'none';
             } catch (err) {
                 status.textContent = `Error: ${err.message}`;
-                console.error(err);
             }
         }
 
@@ -468,18 +508,25 @@
                     uploadedImage = new Image();
                     uploadedImage.src = e.target.result;
                     uploadedImage.onload = () => {
+                        offsetX = 0;
+                        offsetY = 0;
+                        positionX.value = 0;
+                        positionY.value = 0;
                         updateDots();
                         updateFrame();
                     };
                 };
                 reader.readAsDataURL(file);
+                toggleModeBtn.style.display = 'block';
+                camerabtn.style.display = 'none';
+                zoomSlider.style.display = 'block';
+                positionX.style.display = 'block';
+                positionY.style.display = 'block';
             }
         });
-        
-        // Modified event listeners with touch support
+
         toggleModeBtn.addEventListener('click', () => {
-            if (isWebcamMode) {
-            } else {
+            if (!isWebcamMode) {
                 isWebcamMode = true;
                 uploadedImage = null;
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -492,6 +539,8 @@
             offsetX = 0;
             offsetY = 0;
             zoomSlider.value = 1;
+            positionX.value = 0;
+            positionY.value = 0;
         });
 
         zoomSlider.addEventListener('input', (event) => {
@@ -499,107 +548,13 @@
             updateFrame();
         });
 
-        // Touch and mouse events for dragging
-        canvas.addEventListener('touchstart', (event) => {
-            event.preventDefault();
-            isDragging = true;
-            const touch = event.touches[0];
-            startX = touch.clientX - offsetX;
-            startY = touch.clientY - offsetY;
-        }, { passive: false });
-
-        canvas.addEventListener('mousedown', (event) => {
-            isDragging = true;
-            startX = event.clientX - offsetX;
-            startY = event.clientY - offsetY;
-        });
-
-        canvas.addEventListener('touchmove', (event) => {
-            event.preventDefault();
-            if (isDragging) {
-                const touch = event.touches[0];
-                offsetX = touch.clientX - startX;
-                offsetY = touch.clientY - startY;
-                updateFrame();
-            }
-        }, { passive: false });
-
-        canvas.addEventListener('mousemove', (event) => {
-            if (isDragging) {
-                offsetX = event.clientX - startX;
-                offsetY = event.clientY - startY;
-                updateFrame();
-            }
-        });
-
-        canvas.addEventListener('touchend', () => {
-            isDragging = false;
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-
-        canvas.addEventListener('wheel', (event) => {
-            event.preventDefault();
-            zoomLevel += event.deltaY * -0.001;
-            zoomLevel = Math.min(Math.max(0.5, zoomLevel), 3);
-            zoomSlider.value = zoomLevel;
+        positionX.addEventListener('input', (event) => {
+            offsetX = parseFloat(event.target.value);
             updateFrame();
         });
 
-        // Add touch zoom (pinch) support
-        let initialDistance = null;
-        canvas.addEventListener('touchstart', (event) => {
-            if (event.touches.length === 2) {
-                event.preventDefault();
-                const touch1 = event.touches[0];
-                const touch2 = event.touches[1];
-                initialDistance = Math.hypot(
-                    touch1.clientX - touch2.clientX,
-                    touch1.clientY - touch2.clientY
-                );
-            }
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', (event) => {
-            if (event.touches.length === 2) {
-                event.preventDefault();
-                const touch1 = event.touches[0];
-                const touch2 = event.touches[1];
-                const currentDistance = Math.hypot(
-                    touch1.clientX - touch2.clientX,
-                    touch1.clientY - touch2.clientY
-                );
-                if (initialDistance) {
-                    const scale = currentDistance / initialDistance;
-                    zoomLevel = Math.min(Math.max(0.5, zoomLevel * scale), 3);
-                    zoomSlider.value = zoomLevel;
-                    updateFrame();
-                }
-                initialDistance = currentDistance;
-            }
-        }, { passive: false });
-
-        canvas.addEventListener('touchend', (event) => {
-            if (event.touches.length < 2) {
-                initialDistance = null;
-            }
-        });
-
-        canvas.addEventListener('touchend', () => {
-            isDragging = false;
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-
-        canvas.addEventListener('wheel', (event) => {
-            event.preventDefault();
-            zoomLevel += event.deltaY * -0.001;
-            zoomLevel = Math.min(Math.max(0.5, zoomLevel), 3);
-            zoomSlider.value = zoomLevel;
+        positionY.addEventListener('input', (event) => {
+            offsetY = parseFloat(event.target.value);
             updateFrame();
         });
 
@@ -617,9 +572,10 @@
             } else if (uploadedImage) {
                 const imgWidth = uploadedImage.width * zoomLevel;
                 const imgHeight = uploadedImage.height * zoomLevel;
-                ctx.drawImage(uploadedImage, offsetX, offsetY, imgWidth, imgHeight);
+                const centeredX = (canvas.width - imgWidth) / 2 + offsetX;
+                const centeredY = (canvas.height - imgHeight) / 2 + offsetY;
+                ctx.drawImage(uploadedImage, centeredX, centeredY, imgWidth, imgHeight);
             } else {
-                status.textContent = "No video feed or image uploaded";
                 return;
             }
 
@@ -681,7 +637,7 @@
         }
 
         function findClosestColor(hsv, rgb) {
-            const isCubeColor = (hsv[1] > 50 && hsv[2] > 60) ||
+            const isCubeColor = (hsv[1] > 50 && hsv[2] > 40) ||
                 (hsv[1] < 10 && hsv[2] > 85 && rgb[0] > 200 && rgb[1] > 200 && rgb[2] > 200);
 
             if (!isCubeColor) {
@@ -692,8 +648,7 @@
                 return 'white';
             }
 
-            // Special handling for green (rgb(0, 110, 22))
-            const greenThreshold = 40; // Adjust this value to control sensitivity
+            const greenThreshold = 40;
             if (Math.abs(rgb[0] - 0) < greenThreshold &&
                 Math.abs(rgb[1] - 110) < greenThreshold &&
                 Math.abs(rgb[2] - 22) < greenThreshold) {
@@ -725,7 +680,6 @@
                 }
             }
 
-            // [Rest of the findClosestColor function remains the same]
             return closestColor;
         }
 
